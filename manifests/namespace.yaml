@@ -1,0 +1,8 @@
+#Namespaces
+---
+kind: Namespace
+apiVersion: v1
+metadata:
+  name: discovery
+  labels:
+    name: discovery

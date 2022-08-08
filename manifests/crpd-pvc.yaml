@@ -1,0 +1,91 @@
+# Persistent volumes for CRPD
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: crpd-config-volume
+  labels:
+    type: local
+spec:
+  storageClassName: my-local-storage
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/opt/aprabh/bmpaas-sc-discovery/config"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  namespace: discovery
+  labels:
+    app: crpd-config-claim
+  name: crpd-config-claim
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: my-local-storage
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: crpd-log-volume
+  labels:
+    type: local
+spec:
+  storageClassName: my-local-storage
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/opt/aprabh/bmpaas-sc-discovery/log"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  namespace: discovery
+  labels:
+    app: crpd-log-claim
+  name: crpd-log-claim
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: my-local-storage
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: sc-config-volume
+  labels:
+    type: local
+spec:
+  storageClassName: my-local-storage
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/opt/aprabh/bmpaas-sc-discovery/sc-config"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  namespace: discovery
+  labels:
+    app: sc-config-claim
+  name: sc-config-claim
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: my-local-storage
+  resources:
+    requests:
+      storage: 5Gi

@@ -1,0 +1,112 @@
+# CRPD service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: discovery
+  labels:
+    app: crpd
+  name: crpd
+spec:
+  type: NodePort
+  ports:
+  - nodePort: 31051
+    name: "50051"
+    port: 50051
+    targetPort: 50051
+  - nodePort: 31021
+    name: "5221"
+    port: 5221
+    targetPort: 830
+  - nodePort: 31022
+    name: "2222"
+    port: 2222
+    targetPort: 22
+  - nodePort: 31002
+    name: "17002"
+    port: 17002
+    targetPort: 17002
+  - nodePort: 31003
+    name: "17003"
+    port: 17003
+    targetPort: 17003
+  - nodePort: 31004
+    name: "17004"
+    port: 17004
+    targetPort: 17004
+  - nodePort: 31005
+    name: "17005"
+    port: 17005
+    targetPort: 17005
+  - nodePort: 31006
+    name: "17006"
+    port: 17006
+    targetPort: 17006
+  - nodePort: 31007
+    name: "17007"
+    port: 17007
+    targetPort: 17007
+  - nodePort: 31008
+    name: "17008"
+    port: 17008
+    targetPort: 17008
+  selector:
+    app: crpd
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: discovery
+  labels:
+    app: crpd
+  name: crpd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crpd
+  template:
+    metadata:
+      labels:
+        app: crpd
+    spec:
+      containers:
+      - image: crpd:22.3R1.1
+        imagePullPolicy: IfNotPresent
+        name: crpd
+        ports:
+        - containerPort: 50051
+        - containerPort: 830
+        - containerPort: 22
+        - containerPort: 17001
+        - containerPort: 17002
+        - containerPort: 17003
+        - containerPort: 17004
+        - containerPort: 17005
+        - containerPort: 17006
+        - containerPort: 17007
+        #nodeSelector:
+        #hostname: k8s-worker2
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /config
+          subPath: "crpd-config"
+          name: crpd-config
+        - mountPath: /var/log
+          subPath: "crpd-log"
+          name: crpd-log
+        - mountPath: /sc-config
+          subPath: "sc-config"
+          name: sc-config
+      volumes:
+      - name: crpd-config
+        persistentVolumeClaim:
+          claimName: crpd-config-claim
+      - name: crpd-log
+        persistentVolumeClaim:
+          claimName: crpd-log-claim
+      - name: sc-config
+        persistentVolumeClaim:
+          claimName: sc-config-claim
