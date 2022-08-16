@@ -60,7 +60,8 @@ spec:
             - name: KAFKA_LISTENERS
               value: "PLAINTEXT://0.0.0.0:9092"
             - name: KAFKA_ADVERTISED_LISTENERS
-              value: "PLAINTEXT://kafka:31092"
+              # the below IP is the node IP where kafka is deployed
+              value: "PLAINTEXT://10.85.47.166:31092"
           ports:
             - containerPort: 9092
             - containerPort: 9308
