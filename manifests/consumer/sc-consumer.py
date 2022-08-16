@@ -62,7 +62,20 @@ def sqlliteInsertData(
     Insert data into the table. The data typically contains if the service chain element is present
     or not. we need the same params as the input to the function definition. The names are self 
     explanatory.
+    To do:
+    1. Identify common param between BMPinit and BMPpeer topics
     """
+    if name is None:
+        name = ""
+    elif location is None:
+        location = ""
+    elif vendor is None:
+        vendor = ""
+    elif trust_intf_ip is None:
+        trust_intf_ip = ""
+    elif untrust_intf_ip is None:
+        untrust_intf_ip = ""
+
     print(name, location, vendor, trust_intf_ip, untrust_intf_ip)
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
@@ -74,6 +87,9 @@ def sqlliteInsertData(
 # Update data in table
 # WIP!! Do not use this yet
 def sqlliteUpdateData(name, fieldname, fieldvalue):
+    """
+    Update Table with additional data
+    """
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
     cursor.execute("UPDATE DISCOVERY SET ? = ? WHERE name = ?", (fieldname, fieldvalue, name))
@@ -105,14 +121,55 @@ def thread_kafka_topic_handler(message):
         processBmpPeer(message)
     elif (message.topic == "bmp-init"):
         processBmpInit(message)
+    elif (messgae.topic == "bmp-term"):
+        processBmpTerm(message)
+
+def processBmpInit(message):
+    """
+    process BMP Init messages.
+    To do:
+    1. use regex to grab integers to identify dev name
+    """
+    bmpinit = json.loads(message.value)
+    sysname = bmpinit["fields"]["sysname"]
+    sysdesc = bmpinit["fields"]["sysdesc"]
+    if "Juniper" in sysdesc:
+        vendor = "Juniper Networks"
+    # can parse further based on hostname. For example: ny01fw1
+    hostname = sysname
+    location = sysname[:2]
+    # modify this to use regex to grab all integers in string
+    device_id = sysname[2:4]
+    print("hostname: {}".format(hostname))
+    print("location: {}".format(location))
+    #sqlliteInsertData(sysname, location, vendor, "", "")
+
 
 def processBmpPeer(message):
     """
     Process BMP Peer message and store into database
+    To do:
+    1. Identify which is untrust peer and trust peer
     """
     print("process BMP peer")
     mpeer = json.loads(message.value)
     print(mpeer)
+    mpeer_peerip = mpeer["fields"]["peer-bgp-id"]
+    mpeer_is_l3vpn_peer = mpeer["fields"]["is-l3vpn-peer"]
+    mpeer_peer_status = mpeer["fields"]["peer-status"]
+    mpeer_is_v4_peer = mpeer["fields"]["is-v4-peer"]
+    mpeer_local_addr = mpeer["fields"]["local-addr"]
+    mpeer_peer_as = mpeer["fields"]["peer-as"]
+    print(mpeer_peer_as)
+    untrust_as_range = range(65500,65500)
+    trust_as_range = range(65510,65511)
+    if ((mpeer_peer_status == "up") and (mpeer_peer_as in trust_as_range)):
+        trust_intf_ip = mpeer_peerip
+    elif ((mpeer_peer_status == "up") and (mpeer_peer_as in untrust_as_range)):
+        untrust_intf_ip = mpeer_peerip
+
+    print("trust_intf_ip: {}".format(trust_intf_ip))
+    print("untrust_intf_ip: {}".format(untrust_intf_ip))
 
 def processBmpStats(message):
     """
@@ -121,6 +178,14 @@ def processBmpStats(message):
     print("process BMP stats")
     mstats = json.loads(message.value)
     print(mstats)
+
+def processBmpTerm(message):
+    """
+    Process BMP term message.
+    """
+    print("process term message")
+    mterm = json.loads(message.value)
+    print(mterm)
 
 if __name__ == "__main__":
     """
