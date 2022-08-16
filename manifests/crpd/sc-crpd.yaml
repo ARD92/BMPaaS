@@ -92,13 +92,10 @@ spec:
           privileged: true
         volumeMounts:
         - mountPath: /config
-          subPath: "crpd-config"
           name: crpd-config
         - mountPath: /var/log
-          subPath: "crpd-log"
           name: crpd-log
         - mountPath: /sc-config
-          subPath: "sc-config"
           name: sc-config
       volumes:
       - name: crpd-config

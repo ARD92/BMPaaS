@@ -1,0 +1,35 @@
+---
+# consumer and sqllite deploy
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consumer
+  labels:
+    app: consumer
+  namespace: discovery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: consumer
+  template:
+    metadata:
+      labels:
+        app: consumer
+    spec:
+      containers:
+      - name: consumer
+        image: consumer:latest
+        imagePullPolicy: Never
+        command: [ "sleep" ]
+        args: [ "infinity" ]
+        ports:
+          - containerPort: 3000
+        volumeMounts:
+        - mountPath: /opt
+          name: consumer-config
+      volumes:
+      - name: consumer-config
+        persistentVolumeClaim:
+          claimName: consumer-claim  
+      restartPolicy: Always          

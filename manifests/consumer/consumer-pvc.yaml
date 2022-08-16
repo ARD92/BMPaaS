@@ -1,0 +1,31 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  namespace: discovery
+  name: consumer 
+  labels:
+    type: local
+spec:
+  storageClassName: my-local-storage
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/opt/aprabh/bmpaas-sc-discovery/consumer"
+---
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  namespace: discovery
+  labels:
+    app: consumer-claim
+  name: consumer-claim
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: my-local-storage
+  resources:
+    requests:
+      storage: 5Gi
