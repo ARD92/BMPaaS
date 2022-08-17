@@ -22,6 +22,8 @@ KAFKA_BOOTSTRAP_SERVERS_CONS = 'kafka:9092'
 # Sqlite DB to store discovered information
 DB_FILE = '/opt/sc-discovery.db'
 
+TRUST_COMMUNITIES = ["13979:100"]
+UNTRUST_COMMUNITIES = ["13979:200"]
 
 # Create database and connection
 def createConnection(DB_FILE):
@@ -112,9 +114,12 @@ def thread_kafka_topic_handler(message):
     """
     process threads
     """
-    if ((message.topic == 'bmp-rm') or (message.topic == 'bmp-rm-tlv')):
-        print("BGP RM TLV recevied!!\n ")
+    if (message.topic == 'bmp-rm-unicast'):
+        print("BGP RM unicast recevied!!\n ")
         processBmpRm(message)
+    elif (message.topic == 'bmp-rm-tlv'):
+        print("BGP RM TLV")
+        processBmpRmTlv(message)
     elif (message.topic == 'bmp-stats'):
         processBmpStats(message)
     elif (message.topic == "bmp-peer"):
@@ -149,27 +154,28 @@ def processBmpPeer(message):
     """
     Process BMP Peer message and store into database
     To do:
-    1. Identify which is untrust peer and trust peer
+    1. Identify which is untrust peer and trust peer.
+    below uses ASN range which could be used.
     """
     print("process BMP peer")
     mpeer = json.loads(message.value)
-    print(mpeer)
+    #print(mpeer)
     mpeer_peerip = mpeer["fields"]["peer-bgp-id"]
     mpeer_is_l3vpn_peer = mpeer["fields"]["is-l3vpn-peer"]
     mpeer_peer_status = mpeer["fields"]["peer-status"]
     mpeer_is_v4_peer = mpeer["fields"]["is-v4-peer"]
     mpeer_local_addr = mpeer["fields"]["local-addr"]
     mpeer_peer_as = mpeer["fields"]["peer-as"]
-    print(mpeer_peer_as)
-    untrust_as_range = range(65500,65500)
-    trust_as_range = range(65510,65511)
-    if ((mpeer_peer_status == "up") and (mpeer_peer_as in trust_as_range)):
-        trust_intf_ip = mpeer_peerip
-    elif ((mpeer_peer_status == "up") and (mpeer_peer_as in untrust_as_range)):
-        untrust_intf_ip = mpeer_peerip
+    #print(mpeer_peer_as)
+    #untrust_as_range = range(65500,65500)
+    #trust_as_range = range(65510,65511)
+    #if ((mpeer_peer_status == "up") and (mpeer_peer_as in trust_as_range)):
+    #    trust_intf_ip = mpeer_peerip
+    #elif ((mpeer_peer_status == "up") and (mpeer_peer_as in untrust_as_range)):
+    #    untrust_intf_ip = mpeer_peerip
+    #print("trust_intf_ip: {}".format(trust_intf_ip))
+    #print("untrust_intf_ip: {}".format(untrust_intf_ip))
 
-    print("trust_intf_ip: {}".format(trust_intf_ip))
-    print("untrust_intf_ip: {}".format(untrust_intf_ip))
 
 def processBmpStats(message):
     """
@@ -177,15 +183,46 @@ def processBmpStats(message):
     """
     print("process BMP stats")
     mstats = json.loads(message.value)
-    print(mstats)
+    #print(mstats)
 
+# WIP
 def processBmpTerm(message):
     """
     Process BMP term message.
     """
     print("process term message")
     mterm = json.loads(message.value)
-    print(mterm)
+    #print(mterm)
+
+
+def processBmpRm(message):
+    """
+    process BGP-RM
+    """
+    print("process BGP RM UNICAST")
+    mrm = json.loads(message.value)
+    #print(mrm)
+    len_fields = len(mrm["fields"]["rm-msgs"])
+    prefixes = mrm["fields"]["rm-msgs"][len_fields-1]["fields"]["prefixes"]
+    communities = mrm["fields"]["rm-msgs"][len_fields-1]["fields"]["com"]
+    print("prefixes: {}".format(prefixes))
+    print("communities: {}".format(communities))
+    if communities in TRUST_COMMUNITIES:
+        trust_intf_ip = prefixes
+    if communities in UNTRUST_COMMUNITIES:
+        untrust_intf_ip = prefixes
+    print("trust_intf_ip: {}".format(trust_intf_ip))
+    print("untrust_intf_ip: {}".format(untrust_intf_ip))
+
+
+def processBmpRmTlv(message):
+    """
+    process BGP-RM-TLV
+    """
+    print("process bgp-rm-tlv")
+    mrmtlv = json.loads(message.value)
+    #print(mrmtlv)
+
 
 if __name__ == "__main__":
     """
