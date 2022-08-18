@@ -22,6 +22,7 @@ KAFKA_BOOTSTRAP_SERVERS_CONS = 'kafka:9092'
 # Sqlite DB to store discovered information
 DB_FILE = '/opt/sc-discovery.db'
 
+# List of communtiies for trust and untrust
 TRUST_COMMUNITIES = ["13979:100"]
 UNTRUST_COMMUNITIES = ["13979:200"]
 
@@ -48,42 +49,30 @@ def sqliteTableAdd(DB_FILE):
     """
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS DISCOVERY (name TEXT, location TEXT, vendor TEXT, trust_intf_ip TEXT, untrust_intf_ip TEXT);")
-    print("table added")
+    cursor.execute("CREATE TABLE IF NOT EXISTS SC_BMP_INIT (bmp_client_id TEXT,location TEXT,vendor TEXT,device_id TEXT);")
+    cursor.execute("CREATE TABLE IF NOT EXISTS SC_BMP_TLV (bmp_client_id TEXT,peerip TEXT,trust_intf_ip TEXT,untrust_intf_ip TEXT);")
+    print("SC_BMP_INIT and SC_BMP_TLV table added...")
 
 
 # Insert into table
-def sqlliteInsertData(
-                        name,
-                        location, 
-                        vendor,
-                        trust_intf_ip,
-                        untrust_intf_ip
-                        ):
+def sqlliteInsertData(bmp_client_id, tabletype, data):
     """
     Insert data into the table. The data typically contains if the service chain element is present
     or not. we need the same params as the input to the function definition. The names are self 
     explanatory.
-    To do:
-    1. Identify common param between BMPinit and BMPpeer topics
+    Use inner joins to correlate based on primary key bmp_client_id
     """
-    if name is None:
-        name = ""
-    elif location is None:
-        location = ""
-    elif vendor is None:
-        vendor = ""
-    elif trust_intf_ip is None:
-        trust_intf_ip = ""
-    elif untrust_intf_ip is None:
-        untrust_intf_ip = ""
-
-    print(name, location, vendor, trust_intf_ip, untrust_intf_ip)
+    print("inserting data into table")
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
-    cursor.execute("INSERT INTO DISCOVERY VALUES (?, ?, ?, ?, ?)", (name, location, vendor, trust_intf_ip, untrust_intf_ip))
-    connection.commit()
-    print("New SC discovered Data added")
+    if tabletype == "SC_BMP_INIT":
+        cursor.execute("INSERT INTO SC_BMP_INIT VALUES (?, ?, ?, ?)", (bmp_client_id,data[0],data[1],data[2]))
+        connection.commit()
+        print("New BMP client details added")
+    elif tabletype == "SC_BMP_TLV":
+        cursor.execute("INSERT INTO SC_BMP_TLV VALUES (?, ?, ?, ?)", (bmp_client_id,data[0],data[1],data[2]))
+        connection.commit()
+        print("New service chain update added")
 
 
 # Update data in table
@@ -115,10 +104,8 @@ def thread_kafka_topic_handler(message):
     process threads
     """
     if (message.topic == 'bmp-rm-unicast'):
-        print("BGP RM unicast recevied!!\n ")
         processBmpRm(message)
     elif (message.topic == 'bmp-rm-tlv'):
-        print("BGP RM TLV")
         processBmpRmTlv(message)
     elif (message.topic == 'bmp-stats'):
         processBmpStats(message)
@@ -129,27 +116,32 @@ def thread_kafka_topic_handler(message):
     elif (messgae.topic == "bmp-term"):
         processBmpTerm(message)
 
+
 def processBmpInit(message):
     """
     process BMP Init messages.
     To do:
     1. use regex to grab integers to identify dev name
     """
+    print("process bmp-init messsage......")
     bmpinit = json.loads(message.value)
-    sysname = bmpinit["fields"]["sysname"]
+    bmp_client_id = bmpinit["fields"]["sysname"]
     sysdesc = bmpinit["fields"]["sysdesc"]
+    vendor = ""
     if "Juniper" in sysdesc:
         vendor = "Juniper Networks"
+    else:
+        vendor = "unknown vendor"
     # can parse further based on hostname. For example: ny01fw1
-    hostname = sysname
-    location = sysname[:2]
+    location = bmp_client_id[:2]
     # modify this to use regex to grab all integers in string
-    device_id = sysname[2:4]
-    print("hostname: {}".format(hostname))
+    deviceid = bmp_client_id[2:]
+    print("hostname: {}".format(bmp_client_id))
     print("location: {}".format(location))
-    #sqlliteInsertData(sysname, location, vendor, "", "")
+    sqlliteInsertData(bmp_client_id,"SC_BMP_INIT",[location,vendor,deviceid])
 
 
+# WIP: Currently not used
 def processBmpPeer(message):
     """
     Process BMP Peer message and store into database
@@ -157,15 +149,15 @@ def processBmpPeer(message):
     1. Identify which is untrust peer and trust peer.
     below uses ASN range which could be used.
     """
-    print("process BMP peer")
+    print("currently not processing Bmp-peer...")
     mpeer = json.loads(message.value)
     #print(mpeer)
-    mpeer_peerip = mpeer["fields"]["peer-bgp-id"]
-    mpeer_is_l3vpn_peer = mpeer["fields"]["is-l3vpn-peer"]
-    mpeer_peer_status = mpeer["fields"]["peer-status"]
-    mpeer_is_v4_peer = mpeer["fields"]["is-v4-peer"]
-    mpeer_local_addr = mpeer["fields"]["local-addr"]
-    mpeer_peer_as = mpeer["fields"]["peer-as"]
+    #mpeer_peerip = mpeer["fields"]["peer-bgp-id"]
+    #mpeer_is_l3vpn_peer = mpeer["fields"]["is-l3vpn-peer"]
+    #mpeer_peer_status = mpeer["fields"]["peer-status"]
+    #mpeer_is_v4_peer = mpeer["fields"]["is-v4-peer"]
+    #mpeer_local_addr = mpeer["fields"]["local-addr"]
+    #mpeer_peer_as = mpeer["fields"]["peer-as"]
     #print(mpeer_peer_as)
     #untrust_as_range = range(65500,65500)
     #trust_as_range = range(65510,65511)
@@ -177,52 +169,66 @@ def processBmpPeer(message):
     #print("untrust_intf_ip: {}".format(untrust_intf_ip))
 
 
+# WIP: Currently not used 
 def processBmpStats(message):
     """
     Process BMP stats message
     """
-    print("process BMP stats")
+    #print("currently not processing bmp-stats....")
     mstats = json.loads(message.value)
     #print(mstats)
 
-# WIP
+
+# WIP: Currently not used
 def processBmpTerm(message):
     """
     Process BMP term message.
     """
-    print("process term message")
+    #print("currently not processing bmp-term message...")
     mterm = json.loads(message.value)
     #print(mterm)
 
 
+# WIP: Currently not used
 def processBmpRm(message):
     """
-    process BGP-RM
+    process BGP-RM. Find out the advertised prefixes.
+    peerid, prefix, community. Validate against the community 
+    and load the trust and untrust prefix
     """
-    print("process BGP RM UNICAST")
+    print("currently not processing Bmp-rm...")
     mrm = json.loads(message.value)
-    #print(mrm)
-    len_fields = len(mrm["fields"]["rm-msgs"])
-    prefixes = mrm["fields"]["rm-msgs"][len_fields-1]["fields"]["prefixes"]
-    communities = mrm["fields"]["rm-msgs"][len_fields-1]["fields"]["com"]
-    print("prefixes: {}".format(prefixes))
-    print("communities: {}".format(communities))
-    if communities in TRUST_COMMUNITIES:
-        trust_intf_ip = prefixes
-    if communities in UNTRUST_COMMUNITIES:
-        untrust_intf_ip = prefixes
-    print("trust_intf_ip: {}".format(trust_intf_ip))
-    print("untrust_intf_ip: {}".format(untrust_intf_ip))
 
 
 def processBmpRmTlv(message):
     """
     process BGP-RM-TLV
+    use peerip as primary key
     """
     print("process bgp-rm-tlv")
     mrmtlv = json.loads(message.value)
-    #print(mrmtlv)
-
+    trust_intf_ip = ""
+    untrust_intf_ip = ""
+    peerip = ""
+    len_fields = len(mrmtlv["fields"]["rm-msgs"])
+    bmp_client_id = mrmtlv["keys"]["dut-address"]
+    for imrmtlv in range(1, len_fields):
+        prefixes = mrmtlv["fields"]["rm-msgs"][imrmtlv]["fields"]["prefixes"]
+        communities = mrmtlv["fields"]["rm-msgs"][imrmtlv]["fields"]["attributes"]["Communities"]["hex_val"]
+        next_hop = mrmtlv["fields"]["rm-msgs"][imrmtlv]["fields"]["attributes"]["Nexthop"]["hex_val"]
+        dec_comm = communities.split(" ")
+        dec_comm_fin = str(int(''.join(dec_comm[:2]),16))+":"+str(int(''.join(dec_comm[2:]),16))
+        peerip = mrmtlv["fields"]["rm-msgs"][imrmtlv]["fields"]["peer-ip"]
+        action = mrmtlv["fields"]["rm-msgs"][imrmtlv]["fields"]["action"]
+        if ((dec_comm_fin in TRUST_COMMUNITIES) and (action == "update")):
+            trust_intf_ip = ','.join(prefixes)
+        elif ((dec_comm_fin in UNTRUST_COMMUNITIES) and (action == "update")):
+            untrust_intf_ip = ','.join(prefixes)
+    print("bmp_client_id: {}".format(bmp_client_id))
+    print("peerip: {}".format(peerip))
+    print("trust_ips: {}".format(trust_intf_ip))
+    print("untrust_ips: {}".format(untrust_intf_ip))
+    sqlliteInsertData(bmp_client_id,"SC_BMP_TLV",[peerip, trust_intf_ip, untrust_intf_ip])
 
 if __name__ == "__main__":
     """
@@ -232,8 +238,6 @@ if __name__ == "__main__":
     print("Connect to SQLite DN")
     createConnection(DB_FILE)
     sqliteTableAdd(DB_FILE)
-    #sqlliteInsertData("test", "nyc", "jnpr", "10.1.1.1", "10.2.1.1")
-    #sqlliteDeleteData("test")
     while True:
         if kafka_connected == False:
             try:
