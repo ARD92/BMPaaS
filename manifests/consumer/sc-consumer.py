@@ -125,7 +125,10 @@ def processBmpInit(message):
     """
     print("process bmp-init messsage......")
     bmpinit = json.loads(message.value)
-    bmp_client_id = bmpinit["fields"]["sysname"]
+    #print(bmpinit)
+    bmp_client_id = bmpinit["keys"]["dut-address"]
+    #print(bmp_client_id)
+    sysname = bmpinit["fields"]["sysname"]
     sysdesc = bmpinit["fields"]["sysdesc"]
     vendor = ""
     if "Juniper" in sysdesc:
@@ -133,10 +136,10 @@ def processBmpInit(message):
     else:
         vendor = "unknown vendor"
     # can parse further based on hostname. For example: ny01fw1
-    location = bmp_client_id[:2]
+    location = sysname[:2]
     # modify this to use regex to grab all integers in string
-    deviceid = bmp_client_id[2:]
-    print("hostname: {}".format(bmp_client_id))
+    deviceid = sysname[2:]
+    print("hostname: {}".format(sysname))
     print("location: {}".format(location))
     sqlliteInsertData(bmp_client_id,"SC_BMP_INIT",[location,vendor,deviceid])
 
