@@ -16,7 +16,7 @@ from sqlite3 import Error
 from concurrent.futures import ThreadPoolExecutor
 
 # Supported kafka topics from cRPD
-kafka_topics = ["bmp-init", "bmp-peer", "bmp-rm-unicast", "bmp-rm-tlv", "bmp-stats", "bmp-term"]
+kafka_topics = ["bmp-init", "bmp-peer", "bmp-rm-unicast", "bmp-term", "bmp-rm-tlv", "bmp-stats"]
 
 # Connection detail. Kafka service is used hence no need for IP
 KAFKA_BOOTSTRAP_SERVERS_CONS = 'kafka:9092'
@@ -80,6 +80,7 @@ def sqlliteInsertData(bmp_client_id, tabletype, data):
         print("New service chain update added")
     connection.close()
 
+
 # Update data in table
 # WIP!! Do not use this yet
 def sqlliteUpdateData(peer_ip, tabletype, fieldname, fieldvalue):
@@ -95,7 +96,6 @@ def sqlliteUpdateData(peer_ip, tabletype, fieldname, fieldvalue):
 
 
 ## Delete from table
-# WIP!! Do not use this yet
 def sqlliteDeleteData(tabletype, data):
     """
     Delete entry from the DB based on name as the key.
@@ -103,11 +103,15 @@ def sqlliteDeleteData(tabletype, data):
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
     if tabletype == "SC_BMP_INIT":
+        print("Deleting entry from SC_BMP_INIT table...")
         cursor.execute("DELETE FROM SC_BMP_INIT WHERE bmp_client_id = ?", (data,))
         connection.commit()
     elif tabletype == "SC_BMP_TLV":
-        cursor.execute("DELETE FROM SC_BMP_TLV WHERE interface_ips = ?", (data,))
-    print("Deleted field with name {}".format(name))
+        print("Deleting entry from SC_BMP_TLV table..")
+        cursor.execute("DELETE FROM SC_BMP_TLV WHERE interface_ips = ? and peerip = ?", (data[0],data[1],))
+        connection.commit()
+    print("Deleted field based on {}".format(data))
+    connection.close()
 
 
 def thread_kafka_topic_handler(message):
@@ -116,16 +120,16 @@ def thread_kafka_topic_handler(message):
     """
     if (message.topic == 'bmp-rm-unicast'):
         processBmpRmUnicast(message)
+    elif (message.topic == "bmp-init"):
+        processBmpInit(message)
+    elif (message.topic == "bmp-term"):
+        processBmpTerm(message)
     #elif (message.topic == 'bmp-rm-tlv'):
     #    processBmpRmTlv(message)
     #elif (message.topic == 'bmp-stats'):
     #    processBmpStats(message)
     #elif (message.topic == "bmp-peer"):
     #    processBmpPeer(message)
-    elif (message.topic == "bmp-init"):
-        processBmpInit(message)
-    #elif (messgae.topic == "bmp-term"):
-    #    processBmpTerm(message)
 
 
 def processBmpInit(message):
@@ -192,14 +196,19 @@ def processBmpStats(message):
     #print(mstats)
 
 
-# WIP: Currently not used
 def processBmpTerm(message):
     """
-    Process BMP term message. When BMP goes down, remove entry from DB
+    Process BMP term message. When BMP goes down, remove entry from table
+    SC_BMP_INIT based on dut_ip
     """
     print("currently not processing bmp-term message...")
     mterm = json.loads(message.value)
     print(mterm)
+    bmp_client_id = mterm["keys"]["dut-address"]
+    term_reason = mterm["fields"]["term-reason"]
+    term_time = mterm["fields"]["time-sec"]
+    print("BMP CLIENT {} WENT DOWN.. @ time {}..Removing DB entry".format(bmp_client_id, term_time))
+    sqlliteDeleteData("SC_BMP_INIT",bmp_client_id)
 
 
 def processBmpRmUnicast(message):
@@ -210,7 +219,7 @@ def processBmpRmUnicast(message):
     """
     print("processing Bmp-rm-unicast...")
     mrm = json.loads(message.value)
-    #print(mrm)
+    print(mrm)
     len_fields = len(mrm["fields"]["rm-msgs"])
     bmp_client_id = mrm["keys"]["dut-address"]
     for imrm in range(0, len_fields):
@@ -221,7 +230,7 @@ def processBmpRmUnicast(message):
         next_hop = ""
         action = mrm["fields"]["rm-msgs"][imrm]["fields"]["action"]
         monitor = mrm["fields"]["rm-msgs"][imrm]["fields"]["monitor-type"]
-        print(action, monitor)
+        #print(action, monitor)
         if ((action == "update") and (monitor == "rib-in-pre-policy")):
             print("action Update received.. ")
             if "com" in mrm["fields"]["rm-msgs"][imrm]["fields"].keys():
@@ -243,9 +252,12 @@ def processBmpRmUnicast(message):
             else:
                 print("no community.. continuing...")
                 continue
-        elif action == "delete":
-            print("action delete.... continuing...")
-            continue
+        elif (( action == "delete") and (monitor == "rib-in-pre-policy")):
+            prefixes = mrm["fields"]["rm-msgs"][imrm]["fields"]["prefixes"]
+            ips = ','.join(prefixes)
+            peerip = mrm["fields"]["rm-msgs"][imrm]["fields"]["peer-ip"]
+            #print(ips, peerip, bmp_client_id)
+            sqlliteDeleteData("SC_BMP_TLV",[ips,peerip])
 
 def processBmpRmTlv(message):
     """
