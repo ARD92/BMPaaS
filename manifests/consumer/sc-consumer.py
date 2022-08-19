@@ -16,33 +16,18 @@ from sqlite3 import Error
 from concurrent.futures import ThreadPoolExecutor
 
 # Supported kafka topics from cRPD
-kafka_topics = ["bmp-init", "bmp-peer", "bmp-rm-unicast", "bmp-term", "bmp-rm-tlv", "bmp-stats"]
+#kafka_topics = ["bmp-init", "bmp-peer", "bmp-rm-unicast", "bmp-term", "bmp-rm-tlv", "bmp-stats"]
+kafka_topics = ["bmp-init", "bmp-rm-unicast", "bmp-term"]
 
 # Connection detail. Kafka service is used hence no need for IP
 KAFKA_BOOTSTRAP_SERVERS_CONS = 'kafka:9092'
 
 # Sqlite DB to store discovered information
-DB_FILE = '/opt/discovery.db'
+DB_FILE = '/opt/service.db'
 
 # List of communtiies for trust and untrust
 TRUST_COMMUNITIES = ["13979:100"]
 UNTRUST_COMMUNITIES = ["13979:200"]
-
-# Create database and connection
-#def createConnection(DB_FILE):
-#    """
-#    Create a database connection and create the DB if not present.
-#    """
-#    conn = None
-#    try:
-#        conn = sqlite3.connect(DB_FILE)
-#        print(sqlite3.version)
-#    except Error as e:
-#        print(e)
-#    finally:
-#        if conn:
-#            conn.close()
-
 
 # Create table 
 def sqliteTableAdd(DB_FILE):
@@ -60,29 +45,24 @@ def sqliteTableAdd(DB_FILE):
 # Insert into table
 def sqlliteInsertData(bmp_client_id, tabletype, data):
     """
-    Insert data into the table. The data typically contains if the service chain element is present
-    or not. we need the same params as the input to the function definition. The names are self 
-    explanatory.
-    Use inner joins to correlate based on primary key bmp_client_id
+    Insert data into the table. The data consists of info which is retrieved 
+    if the service chain element is discovered based on BGP.
     """
     print("inserting data into table")
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
     if tabletype == "SC_BMP_INIT":
         cursor.execute("INSERT INTO SC_BMP_INIT VALUES (?, ?, ?, ?)", (bmp_client_id,data[0],data[1],data[2]))
-        connection.commit()
         print("New BMP client details added")
     elif tabletype == "SC_BMP_TLV":
-        # data = [peer_ip, interface_ips, ip_type]
-        print(data)
+        #print(data)
         cursor.execute("INSERT INTO SC_BMP_TLV VALUES (?, ?, ?, ?)", (bmp_client_id,data[0],data[1],data[2]))
-        connection.commit()
         print("New service chain update added")
+    connection.commit()
     connection.close()
 
 
-# Update data in table
-# WIP!! Do not use this yet
+# WIP: Currently not used. Update data in table
 def sqlliteUpdateData(peer_ip, tabletype, fieldname, fieldvalue):
     """
     Update Table with additional data
@@ -116,7 +96,7 @@ def sqlliteDeleteData(tabletype, data):
 
 def thread_kafka_topic_handler(message):
     """
-    process threads
+    process threads based on kafka topics.
     """
     if (message.topic == 'bmp-rm-unicast'):
         processBmpRmUnicast(message)
@@ -136,7 +116,7 @@ def processBmpInit(message):
     """
     process BMP Init messages.
     To do:
-    1. use regex to grab integers to identify dev name
+    1. use regex instead of slicing to grab integers to identify dev name
     """
     print("process bmp-init messsage......")
     bmpinit = json.loads(message.value)
@@ -162,28 +142,10 @@ def processBmpInit(message):
 def processBmpPeer(message):
     """
     Process BMP Peer message and store into database
-    To do:
-    1. Identify which is untrust peer and trust peer.
-    below uses ASN range which could be used.
     """
     print("currently not processing Bmp-peer...")
     #mpeer = json.loads(message.value)
     #print(mpeer)
-    #mpeer_peerip = mpeer["fields"]["peer-bgp-id"]
-    #mpeer_is_l3vpn_peer = mpeer["fields"]["is-l3vpn-peer"]
-    #mpeer_peer_status = mpeer["fields"]["peer-status"]
-    #mpeer_is_v4_peer = mpeer["fields"]["is-v4-peer"]
-    #mpeer_local_addr = mpeer["fields"]["local-addr"]
-    #mpeer_peer_as = mpeer["fields"]["peer-as"]
-    #print(mpeer_peer_as)
-    #untrust_as_range = range(65500,65500)
-    #trust_as_range = range(65510,65511)
-    #if ((mpeer_peer_status == "up") and (mpeer_peer_as in trust_as_range)):
-    #    trust_intf_ip = mpeer_peerip
-    #elif ((mpeer_peer_status == "up") and (mpeer_peer_as in untrust_as_range)):
-    #    untrust_intf_ip = mpeer_peerip
-    #print("trust_intf_ip: {}".format(trust_intf_ip))
-    #print("untrust_intf_ip: {}".format(untrust_intf_ip))
 
 
 # WIP: Currently not used 
@@ -198,12 +160,12 @@ def processBmpStats(message):
 
 def processBmpTerm(message):
     """
-    Process BMP term message. When BMP goes down, remove entry from table
+    Process BMP term message. When BMP client goes down, remove entry from table
     SC_BMP_INIT based on dut_ip
     """
     print("currently not processing bmp-term message...")
     mterm = json.loads(message.value)
-    print(mterm)
+    #print(mterm)
     bmp_client_id = mterm["keys"]["dut-address"]
     term_reason = mterm["fields"]["term-reason"]
     term_time = mterm["fields"]["time-sec"]
@@ -219,7 +181,7 @@ def processBmpRmUnicast(message):
     """
     print("processing Bmp-rm-unicast...")
     mrm = json.loads(message.value)
-    print(mrm)
+    #print(mrm)
     len_fields = len(mrm["fields"]["rm-msgs"])
     bmp_client_id = mrm["keys"]["dut-address"]
     for imrm in range(0, len_fields):
@@ -238,14 +200,16 @@ def processBmpRmUnicast(message):
                 if "next-hop" in mrm["fields"]["rm-msgs"][imrm]["fields"].keys(): 
                     next_hop = mrm["fields"]["rm-msgs"][imrm]["fields"]["next-hop"]
                     prefixes = mrm["fields"]["rm-msgs"][imrm]["fields"]["prefixes"]
+                    print(prefixes)
                     peerip = mrm["fields"]["rm-msgs"][imrm]["fields"]["peer-ip"]
                     if (communities.strip(" ") in TRUST_COMMUNITIES):
-                        ips = ','.join(prefixes)
                         ip_type = "Trust"
+                        for prefix in prefixes:
+                            sqlliteInsertData(bmp_client_id,"SC_BMP_TLV",[peerip,prefix,ip_type])
                     elif (communities.strip(" ") in UNTRUST_COMMUNITIES):
-                        ips = ','.join(prefixes)
                         ip_type = "Untrust"
-                    sqlliteInsertData(bmp_client_id,"SC_BMP_TLV",[peerip,ips,ip_type])
+                        for prefix in prefixes:
+                            sqlliteInsertData(bmp_client_id,"SC_BMP_TLV",[peerip,prefix,ip_type])
                 else:
                     print("no nexthop... continuing..")
                     continue
@@ -254,16 +218,16 @@ def processBmpRmUnicast(message):
                 continue
         elif (( action == "delete") and (monitor == "rib-in-pre-policy")):
             prefixes = mrm["fields"]["rm-msgs"][imrm]["fields"]["prefixes"]
-            ips = ','.join(prefixes)
             peerip = mrm["fields"]["rm-msgs"][imrm]["fields"]["peer-ip"]
             #print(ips, peerip, bmp_client_id)
-            sqlliteDeleteData("SC_BMP_TLV",[ips,peerip])
+            for prefix in prefixes:
+                sqlliteDeleteData("SC_BMP_TLV",[prefix,peerip])
 
 def processBmpRmTlv(message):
     """
     process BGP-RM-TLV
     rib-in pre policy only applicable. Everything is TLV based.
-    Ignore this and rely on rm-unicast
+    Ignore this and rely on rm-unicast instead 
     """
     print("currently not processing bgp-rm-tlv... ")
     #mrmtlv = json.loads(message.value)
@@ -288,6 +252,6 @@ if __name__ == "__main__":
             except:
                 print("Kafka not conneccted to: ", KAFKA_BOOTSTRAP_SERVERS_CONS)
                 kafka_connected = False
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             for message in consumer:
                 executor.submit(thread_kafka_topic_handler, message=message,)
