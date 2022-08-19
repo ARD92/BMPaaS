@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 # Author: aprabh@juniper.net
 # Version: 1.0
 # Description: Kafka consumer app to parse BGP messages and store 
@@ -20,26 +22,26 @@ kafka_topics = ["bmp-init", "bmp-peer", "bmp-rm-unicast", "bmp-rm-tlv", "bmp-sta
 KAFKA_BOOTSTRAP_SERVERS_CONS = 'kafka:9092'
 
 # Sqlite DB to store discovered information
-DB_FILE = '/opt/sc-discovery.db'
+DB_FILE = '/opt/discovery.db'
 
 # List of communtiies for trust and untrust
 TRUST_COMMUNITIES = ["13979:100"]
 UNTRUST_COMMUNITIES = ["13979:200"]
 
 # Create database and connection
-def createConnection(DB_FILE):
-    """
-    Create a database connection and create the DB if not present.
-    """
-    conn = None
-    try:
-        conn = sqlite3.connect(DB_FILE)
-        print(sqlite3.version)
-    except Error as e:
-        print(e)
-    finally:
-        if conn:
-            conn.close()
+#def createConnection(DB_FILE):
+#    """
+#    Create a database connection and create the DB if not present.
+#    """
+#    conn = None
+#    try:
+#        conn = sqlite3.connect(DB_FILE)
+#        print(sqlite3.version)
+#    except Error as e:
+#        print(e)
+#    finally:
+#        if conn:
+#            conn.close()
 
 
 # Create table 
@@ -48,10 +50,11 @@ def sqliteTableAdd(DB_FILE):
     Create the table if it doesnt exist. If it exists, reuse the table.
     """
     connection = sqlite3.connect(DB_FILE)
-    cursor = connection.cursor()
-    cursor.execute("CREATE TABLE IF NOT EXISTS SC_BMP_INIT (bmp_client_id TEXT,location TEXT,vendor TEXT,device_id TEXT);")
-    cursor.execute("CREATE TABLE IF NOT EXISTS SC_BMP_TLV (bmp_client_id TEXT,peerip TEXT,trust_intf_ip TEXT,untrust_intf_ip TEXT);")
+    connection.execute("CREATE TABLE IF NOT EXISTS SC_BMP_INIT (bmp_client_id TEXT,location TEXT,vendor TEXT,device_id TEXT);")
+    connection.execute("CREATE TABLE IF NOT EXISTS SC_BMP_TLV (bmp_client_id TEXT,peerip TEXT,interface_ips TEXT,ip_type TEXT);")
     print("SC_BMP_INIT and SC_BMP_TLV table added...")
+    connection.commit()
+    connection.close()
 
 
 # Insert into table
@@ -70,32 +73,40 @@ def sqlliteInsertData(bmp_client_id, tabletype, data):
         connection.commit()
         print("New BMP client details added")
     elif tabletype == "SC_BMP_TLV":
+        # data = [peer_ip, interface_ips, ip_type]
+        print(data)
         cursor.execute("INSERT INTO SC_BMP_TLV VALUES (?, ?, ?, ?)", (bmp_client_id,data[0],data[1],data[2]))
         connection.commit()
         print("New service chain update added")
-
+    connection.close()
 
 # Update data in table
 # WIP!! Do not use this yet
-def sqlliteUpdateData(name, fieldname, fieldvalue):
+def sqlliteUpdateData(peer_ip, tabletype, fieldname, fieldvalue):
     """
     Update Table with additional data
     """
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
-    cursor.execute("UPDATE DISCOVERY SET ? = ? WHERE name = ?", (fieldname, fieldvalue, name))
-    print("UPDATED TRUST IP")
+    if tabletype == "SC_BMP_TLV":
+        cursor.execute("UPDATE SC_BMP_TLV SET ? = ? WHERE peer_ip = ?", (peer_ip, ))
+        #cursor.commit()
+        print("UPDATED TRUST IP")
 
 
-# Delete from table
-def sqlliteDeleteData(name):
+## Delete from table
+# WIP!! Do not use this yet
+def sqlliteDeleteData(tabletype, data):
     """
     Delete entry from the DB based on name as the key.
     """
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
-    cursor.execute("DELETE FROM DISCOVERY WHERE name = ?", (name,))
-    connection.commit()
+    if tabletype == "SC_BMP_INIT":
+        cursor.execute("DELETE FROM SC_BMP_INIT WHERE bmp_client_id = ?", (data,))
+        connection.commit()
+    elif tabletype == "SC_BMP_TLV":
+        cursor.execute("DELETE FROM SC_BMP_TLV WHERE interface_ips = ?", (data,))
     print("Deleted field with name {}".format(name))
 
 
@@ -104,17 +115,17 @@ def thread_kafka_topic_handler(message):
     process threads
     """
     if (message.topic == 'bmp-rm-unicast'):
-        processBmpRm(message)
-    elif (message.topic == 'bmp-rm-tlv'):
-        processBmpRmTlv(message)
-    elif (message.topic == 'bmp-stats'):
-        processBmpStats(message)
-    elif (message.topic == "bmp-peer"):
-        processBmpPeer(message)
+        processBmpRmUnicast(message)
+    #elif (message.topic == 'bmp-rm-tlv'):
+    #    processBmpRmTlv(message)
+    #elif (message.topic == 'bmp-stats'):
+    #    processBmpStats(message)
+    #elif (message.topic == "bmp-peer"):
+    #    processBmpPeer(message)
     elif (message.topic == "bmp-init"):
         processBmpInit(message)
-    elif (messgae.topic == "bmp-term"):
-        processBmpTerm(message)
+    #elif (messgae.topic == "bmp-term"):
+    #    processBmpTerm(message)
 
 
 def processBmpInit(message):
@@ -127,7 +138,6 @@ def processBmpInit(message):
     bmpinit = json.loads(message.value)
     #print(bmpinit)
     bmp_client_id = bmpinit["keys"]["dut-address"]
-    #print(bmp_client_id)
     sysname = bmpinit["fields"]["sysname"]
     sysdesc = bmpinit["fields"]["sysdesc"]
     vendor = ""
@@ -153,7 +163,7 @@ def processBmpPeer(message):
     below uses ASN range which could be used.
     """
     print("currently not processing Bmp-peer...")
-    mpeer = json.loads(message.value)
+    #mpeer = json.loads(message.value)
     #print(mpeer)
     #mpeer_peerip = mpeer["fields"]["peer-bgp-id"]
     #mpeer_is_l3vpn_peer = mpeer["fields"]["is-l3vpn-peer"]
@@ -177,61 +187,75 @@ def processBmpStats(message):
     """
     Process BMP stats message
     """
-    #print("currently not processing bmp-stats....")
-    mstats = json.loads(message.value)
+    print("currently not processing bmp-stats....")
+    #mstats = json.loads(message.value)
     #print(mstats)
 
 
 # WIP: Currently not used
 def processBmpTerm(message):
     """
-    Process BMP term message.
+    Process BMP term message. When BMP goes down, remove entry from DB
     """
-    #print("currently not processing bmp-term message...")
+    print("currently not processing bmp-term message...")
     mterm = json.loads(message.value)
-    #print(mterm)
+    print(mterm)
 
 
-# WIP: Currently not used
-def processBmpRm(message):
+def processBmpRmUnicast(message):
     """
     process BGP-RM. Find out the advertised prefixes.
     peerid, prefix, community. Validate against the community 
     and load the trust and untrust prefix
     """
-    print("currently not processing Bmp-rm...")
+    print("processing Bmp-rm-unicast...")
     mrm = json.loads(message.value)
-
+    #print(mrm)
+    len_fields = len(mrm["fields"]["rm-msgs"])
+    bmp_client_id = mrm["keys"]["dut-address"]
+    for imrm in range(0, len_fields):
+        peerip = ""
+        ips = ""
+        ip_type = ""
+        communities = ""
+        next_hop = ""
+        action = mrm["fields"]["rm-msgs"][imrm]["fields"]["action"]
+        monitor = mrm["fields"]["rm-msgs"][imrm]["fields"]["monitor-type"]
+        print(action, monitor)
+        if ((action == "update") and (monitor == "rib-in-pre-policy")):
+            print("action Update received.. ")
+            if "com" in mrm["fields"]["rm-msgs"][imrm]["fields"].keys():
+                communities = mrm["fields"]["rm-msgs"][imrm]["fields"]["com"]
+                if "next-hop" in mrm["fields"]["rm-msgs"][imrm]["fields"].keys(): 
+                    next_hop = mrm["fields"]["rm-msgs"][imrm]["fields"]["next-hop"]
+                    prefixes = mrm["fields"]["rm-msgs"][imrm]["fields"]["prefixes"]
+                    peerip = mrm["fields"]["rm-msgs"][imrm]["fields"]["peer-ip"]
+                    if (communities.strip(" ") in TRUST_COMMUNITIES):
+                        ips = ','.join(prefixes)
+                        ip_type = "Trust"
+                    elif (communities.strip(" ") in UNTRUST_COMMUNITIES):
+                        ips = ','.join(prefixes)
+                        ip_type = "Untrust"
+                    sqlliteInsertData(bmp_client_id,"SC_BMP_TLV",[peerip,ips,ip_type])
+                else:
+                    print("no nexthop... continuing..")
+                    continue
+            else:
+                print("no community.. continuing...")
+                continue
+        elif action == "delete":
+            print("action delete.... continuing...")
+            continue
 
 def processBmpRmTlv(message):
     """
     process BGP-RM-TLV
-    use peerip as primary key
+    rib-in pre policy only applicable. Everything is TLV based.
+    Ignore this and rely on rm-unicast
     """
-    print("process bgp-rm-tlv")
-    mrmtlv = json.loads(message.value)
-    trust_intf_ip = ""
-    untrust_intf_ip = ""
-    peerip = ""
-    len_fields = len(mrmtlv["fields"]["rm-msgs"])
-    bmp_client_id = mrmtlv["keys"]["dut-address"]
-    for imrmtlv in range(1, len_fields):
-        prefixes = mrmtlv["fields"]["rm-msgs"][imrmtlv]["fields"]["prefixes"]
-        communities = mrmtlv["fields"]["rm-msgs"][imrmtlv]["fields"]["attributes"]["Communities"]["hex_val"]
-        next_hop = mrmtlv["fields"]["rm-msgs"][imrmtlv]["fields"]["attributes"]["Nexthop"]["hex_val"]
-        dec_comm = communities.split(" ")
-        dec_comm_fin = str(int(''.join(dec_comm[:2]),16))+":"+str(int(''.join(dec_comm[2:]),16))
-        peerip = mrmtlv["fields"]["rm-msgs"][imrmtlv]["fields"]["peer-ip"]
-        action = mrmtlv["fields"]["rm-msgs"][imrmtlv]["fields"]["action"]
-        if ((dec_comm_fin in TRUST_COMMUNITIES) and (action == "update")):
-            trust_intf_ip = ','.join(prefixes)
-        elif ((dec_comm_fin in UNTRUST_COMMUNITIES) and (action == "update")):
-            untrust_intf_ip = ','.join(prefixes)
-    print("bmp_client_id: {}".format(bmp_client_id))
-    print("peerip: {}".format(peerip))
-    print("trust_ips: {}".format(trust_intf_ip))
-    print("untrust_ips: {}".format(untrust_intf_ip))
-    sqlliteInsertData(bmp_client_id,"SC_BMP_TLV",[peerip, trust_intf_ip, untrust_intf_ip])
+    print("currently not processing bgp-rm-tlv... ")
+    #mrmtlv = json.loads(message.value)
+    #print(mrmtlv)
 
 if __name__ == "__main__":
     """
@@ -239,7 +263,7 @@ if __name__ == "__main__":
     """
     kafka_connected = False
     print("Connect to SQLite DN")
-    createConnection(DB_FILE)
+    #createConnection(DB_FILE)
     sqliteTableAdd(DB_FILE)
     while True:
         if kafka_connected == False:
@@ -254,5 +278,4 @@ if __name__ == "__main__":
                 kafka_connected = False
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             for message in consumer:
-                #print(message)
                 executor.submit(thread_kafka_topic_handler, message=message,)
