@@ -21,13 +21,15 @@ spec:
       - name: consumer
         image: consumer:latest
         imagePullPolicy: Never
-        command: [ "sleep" ]
-        args: [ "infinity" ]
+        #command: ["sleep"]
+        #args: ["infinity"]
         ports:
           - containerPort: 3000
         volumeMounts:
         - mountPath: /opt
           name: consumer-config
+        securityContext:
+          privileged: true
       volumes:
       - name: consumer-config
         persistentVolumeClaim:
