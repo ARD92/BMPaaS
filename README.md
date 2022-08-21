@@ -14,7 +14,9 @@ In this example, SQLite DB is used because of ease of use and simplicity.
 ## Quick steps to test
 
 ### Clone the repo
-
+```
+git clone https://github.com/ARD92/BMPaaS.git
+```
 ### Bring up the topology 
 Use crpd-topology-builder to bring up a test topology.
 The tool can be found [here](https://github.com/ARD92/crpd-topology-builder)
