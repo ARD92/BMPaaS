@@ -77,6 +77,12 @@ you can run the below command to load the containers with necessary config. Note
 ```
 The configs can be found [here](https://github.com/ARD92/crpd-topology-builder/tree/master/configs/bmp)
 
+### Setup the discovery app
+Ensure this is run on a kubernetes cluster
+```
+./install.sh
+```
+
 ## Verify
 
 ### Topology related
