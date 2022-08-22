@@ -8,6 +8,6 @@ kubectl apply -f manifests/crpd/crpd-pvc.yaml
 kubectl apply -f manifests/kafka/sc-zookeeper.yaml
 kubectl apply -f manifests/kafka/sc-kafka.yaml
 #Consumer
-docker build -t sc_consumer:latest -f /manifests/consumer/Dockerfile
+docker build -t consumer:latest -f /manifests/consumer/Dockerfile
 kubectl apply -f manifests/consumer/sc-consumer.yaml
 kubectl apply -f manifests/consumer/consumer-pvc.yaml
