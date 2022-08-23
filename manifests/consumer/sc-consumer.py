@@ -68,8 +68,8 @@ def sqliteTableAdd(DB_FILE):
     Create the table if it doesnt exist. If it exists, reuse the table.
     """
     connection = sqlite3.connect(DB_FILE)
-    connection.execute("CREATE TABLE IF NOT EXISTS SC_BMP_INIT (bmp_client_id TEXT,location TEXT,vendor TEXT,device_id TEXT);")
-    connection.execute("CREATE TABLE IF NOT EXISTS SC_BMP_TLV (bmp_client_id TEXT,peerip TEXT,interface_ips TEXT,ip_type TEXT);")
+    connection.execute("CREATE TABLE IF NOT EXISTS SC_BMP_INIT (bmp_client_id TEXT NOT NULL,location TEXT NOT NULL,vendor TEXT,device_id TEXT NOT NULL, PRIMARY KEY (bmp_client_id, location, device_id));")
+    connection.execute("CREATE TABLE IF NOT EXISTS SC_BMP_TLV (bmp_client_id TEXT NOT NULL ,peerip TEXT NOT NULL,interface_ips TEXT NOT NULL,ip_type TEXT, PRIMARY KEY (bmp_client_id, peerip, interface_ips));")
     logging.info("SC_BMP_INIT and SC_BMP_TLV table added...")
     connection.commit()
     connection.close()
@@ -83,19 +83,22 @@ def sqlliteInsertData(bmp_client_id, tabletype, data):
     explanatory.
     Use inner joins to correlate based on primary key bmp_client_id
     """
-    logging.info("inserting data into table")
-    connection = sqlite3.connect(DB_FILE)
-    cursor = connection.cursor()
-    if tabletype == "SC_BMP_INIT":
-        cursor.execute("INSERT INTO SC_BMP_INIT VALUES (?, ?, ?, ?)", (bmp_client_id,data[0],data[1],data[2]))
-        logging.info("New BMP client details added")
-    elif tabletype == "SC_BMP_TLV":
-        # data = [peer_ip, interface_ips, ip_type]
-        logging.debug(data)
-        cursor.execute("INSERT INTO SC_BMP_TLV VALUES (?, ?, ?, ?)", (bmp_client_id,data[0],data[1],data[2]))
-        logging.info("New service chain update added")
-    connection.commit()
-    connection.close()
+    try:
+        logging.info("inserting data into table")
+        connection = sqlite3.connect(DB_FILE)
+        cursor = connection.cursor()
+        if tabletype == "SC_BMP_INIT":
+            cursor.execute("INSERT INTO SC_BMP_INIT VALUES (?, ?, ?, ?)", (bmp_client_id,data[0],data[1],data[2]))
+            logging.info("New BMP client details added")
+        elif tabletype == "SC_BMP_TLV":
+            logging.debug(data)
+            cursor.execute("INSERT INTO SC_BMP_TLV VALUES (?, ?, ?, ?)", (bmp_client_id,data[0],data[1],data[2]))
+            logging.info("New service chain update added")
+    except Error as err:
+        logging.info(err)
+    finally:
+        connection.commit()
+        connection.close()
 
 
 # Update data in table
