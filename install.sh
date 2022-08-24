@@ -1,3 +1,7 @@
+# Author: Aravind Prabhakar (aprabh@juniper.net)
+# Date: 2022-08-24
+# Version: v1.1
+
 # Install package
 #namespace
 kubectl apply -f manifests/namespace.yaml

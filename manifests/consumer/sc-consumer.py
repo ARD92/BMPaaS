@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 # Author: aprabh@juniper.net
-# Version: 1.0
+# Version: v1.1
 # Description: Kafka consumer app to parse BGP messages and store 
 #              them into a SQLite DB with necessary params.
 #              The params include (hostname, untrust interface IP, trust Interface IP)

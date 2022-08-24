@@ -9,12 +9,31 @@
 # Copy this file to /var/db/scripts/action
 
 import os
-import jcs
 import argparse
 import sqlite3
+#import pprint
 from sqlite3 import Error
 
 DB_FILE = "/mnt/service_chain.db"
+
+def generate_xml(args):
+    xml_items = []
+    if (args.rpc_name == "get-discovery"):
+        rows =  queryDb(DB_FILE)
+        for row in rows:
+            XML = '''
+                <discovered>
+                <location>{0}</location>
+                <vendor>{1}</vendor>
+                <peer_ip>{2}</peer_ip>
+                <device_id>{3}</device_id>
+                <service_ip>{4}</service_ip>
+                <service_ip_type>{5}</service_ip_type>
+                </discovered>
+                '''.format(row[0], row[1], row[2], row[3], row[4], row[5])
+            xml_items.append(XML)
+
+    return xml_items
 
 def queryDb(DB_FILE):
     """
@@ -23,28 +42,21 @@ def queryDb(DB_FILE):
     connection = sqlite3.connect(DB_FILE)
     cursor = connection.cursor()
     rows = cursor.execute("SELECT location, vendor, peerip, device_id, interface_ips, ip_type FROM SC_BMP_INIT inner join SC_BMP_TLV on SC_BMP_INIT.bmp_client_id=SC_BMP_TLV.bmp_client_id").fetchall()
-    for row in rows:
-        location = row[0]
-        vendor = row[1]
-        peer_ip = row[2]
-        device_id = row[3]
-        service_ip = row[4]
-        service_ip_type = row[5]
-        print("<discovered>")
-        print("<bmp_client_id>{}</bmp_client_id>".format(bmp_client_id))
-        print("<location>{}</location>".format(location))
-        print("<vendor>{}</vendor>".format(vendor))
-        print("<device_id>{}</device_id>".format(device_id))
-        print("<service_ip>{}</service_ip>".format(service_ip))
-        print("<service_ip_type>{}</service_ip_type>".format(service_ip_type))
-        print("</discovered>")
+
+    return rows
 
 def main():
     parser = argparse.ArgumentParser(description='This is a demo script.')
-    parser.add_argument('--discovered', required=True)
     parser.add_argument('--rpc_name', required=True)
+    parser.add_argument('--discovered', required=True, default=None)
     args = parser.parse_args()
-    queryDb(DB_FILE)
+
+    # generate XML for RPC
+    rpc_output_xml = generate_xml(args)
+    #pp = pprint.PrettyPrinter() 
+    for xml_val in rpc_output_xml:
+        print(xml_val)
+
 
 if __name__ == "__main__":
     main()

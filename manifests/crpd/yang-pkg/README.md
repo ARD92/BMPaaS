@@ -4,6 +4,9 @@ This package allows to query the DB as part of junos RPC call. i.e. The discover
 
 ## Steps to load package
 
+## Ensure volume mounts
+Ensure cRPD has the volume mounted with the same PVC as the consumer pod. The DB PVC would be mounted on cRPD as well under /mnt. This will ensure the package works as expected.
+
 ### Copy the folder to cRPD
 ```
 kubectl cp yang-pkg -n discovery <crpd-pod>:/tmp

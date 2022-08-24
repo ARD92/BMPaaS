@@ -37,9 +37,10 @@ module sc-discovery {
 		}
 		output {
 			container discovered {
-				leaf bmp_client_id {
+				/*leaf bmp_client_id {
 					type string;
-				}
+
+				}*/
 				leaf location {
 					type string;
 				}
@@ -59,20 +60,33 @@ module sc-discovery {
 					type string;
 				}
 
-				junos-odl:style detail {
-					junos-odl:format discovered-format {
-						junos-odl:header "Detail output\n";
-						junos-odl:space;
-						junos-odl:line {
-							junos-odl:field "bmp_client_id";
-							junos-odl:field "location";
-							junos-odl:field "vendor";
-							junos-odl:field "peer_ip";
-							junos-odl:field "device_id";
-							junos-odl:field "service_ip";
-							junos-odl:field "service_ip_type";
-						}
+				junos-odl:format discovered-format {
+			junos-odl:picture '
+		Location	: @<<< 
+		Vendor	  	: @<<<
+		Peer IP	  	: @<<<
+		Device ID	: @<<<
+		Service IP	: @<<<
+		Service IP Type : @<<<'; 
+					junos-odl:line {
+						junos-odl:field "location";
 					}
+					junos-odl:line {
+						junos-odl:field "vendor";
+					}
+					junos-odl:line {
+						junos-odl:field "peer_ip";
+					}
+					junos-odl:line {
+						junos-odl:field "device_id";
+					}
+					junos-odl:line {
+						junos-odl:field "service_ip";
+					}
+					junos-odl:line {
+						junos-odl:field "service_ip_type";
+					}
+					junos-odl:blank-line;
 				}
 			}
 		}
