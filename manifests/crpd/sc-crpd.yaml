@@ -97,6 +97,7 @@ spec:
           name: crpd-log
         - mountPath: /sc-config
           name: sc-config
+        # The below mount point is only optional if yang-pkg is installed
         - mountPath: /mnt
           name: consumer-config
       volumes:
@@ -109,6 +110,7 @@ spec:
       - name: sc-config
         persistentVolumeClaim:
           claimName: sc-config-claim
+      # The below mount point is only optional if yang-pkg is installed
       - name: consumer-config
         persistentVolumeClaim:
           claimName: consumer-claim
