@@ -97,6 +97,8 @@ spec:
           name: crpd-log
         - mountPath: /sc-config
           name: sc-config
+        - mountPath: /mnt
+          name: consumer-config
       volumes:
       - name: crpd-config
         persistentVolumeClaim:
@@ -107,3 +109,6 @@ spec:
       - name: sc-config
         persistentVolumeClaim:
           claimName: sc-config-claim
+      - name: consumer-config
+        persistentVolumeClaim:
+          claimName: consumer-claim

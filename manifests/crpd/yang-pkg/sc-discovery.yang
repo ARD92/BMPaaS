@@ -1,0 +1,81 @@
+/*
+Version: 1.1
+Date: 2022-08-23
+Description: Custom yang model to display discovered service chain element.
+The consideration is a firewall and it would have a trust and an untrust service IP
+The output of this RPC call would be from querying the database.
+
+Example: "show service-chain discovered" 
+*/
+
+module sc-discovery {
+	namespace "http://sc-discovery";
+	prefix	"sc-discovery";
+	import junos-extension {
+		prefix junos;
+	}
+	import junos-extension-odl {
+		prefix junos-odl;
+	}
+	organization "Juniper Networks";
+	contact "aprabh@juniper.net";
+	description " A yang model to view the discovered service chain elements";
+	revision "2022-08-23" {
+		description "Version 1.1";
+	}
+	rpc get-discovery {
+		description "List all discovered service chain elements";
+		junos:command "show service-chain" {
+			junos:action-execute {
+				junos:script "sc-discover_yang_action.py";
+			}
+		}
+		input {
+			leaf discovered {
+				type empty;
+			}
+		}
+		output {
+			container discovered {
+				leaf bmp_client_id {
+					type string;
+				}
+				leaf location {
+					type string;
+				}
+				leaf vendor {
+					type string;
+				}
+				leaf peer_ip {
+					type string;
+				}
+				leaf device_id {
+					type string;
+				}
+				leaf service_ip {
+					type string;
+				}
+				leaf service_ip_type {
+					type string;
+				}
+
+				junos-odl:style detail {
+					junos-odl:format discovered-format {
+						junos-odl:header "Detail output\n";
+						junos-odl:space;
+						junos-odl:line {
+							junos-odl:field "bmp_client_id";
+							junos-odl:field "location";
+							junos-odl:field "vendor";
+							junos-odl:field "peer_ip";
+							junos-odl:field "device_id";
+							junos-odl:field "service_ip";
+							junos-odl:field "service_ip_type";
+						}
+					}
+				}
+			}
+		}
+	}
+}
+		
