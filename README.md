@@ -205,3 +205,26 @@ sqlite> SELECT * FROM SC_BMP_INIT left join SC_BMP_TLV on SC_BMP_INIT.bmp_client
 10.244.1.1|ny|Juniper Networks|01emd|10.244.1.1|100.1.1.2|10.10.10.12/32|Untrust
 10.244.1.1|ny|Juniper Networks|01emd|10.244.1.1|100.1.1.2|10.10.10.13/32|Trust
 ```
+
+## Optional Yang package
+Optional yang package is available to view the discovered service chain elements. This needs to be installed on cRPD.
+Follow the steps under manifests/crpd/yang-pkg
+
+This will give an option to use a "show" command which queries the DB for the results.
+
+```
+root@crpd-f4556f7c-bwbpr> show service-chain discovered
+		Location	: nj
+		Vendor	  	: Juniper Networks
+		Peer IP	  	: 1.1.1.1
+		Device ID	: 01emd
+		Service IP	: 21.21.21.21/32
+		Service IP Type : Trust
+
+		Location	: nj
+		Vendor	  	: Juniper Networks
+		Peer IP	  	: 1.1.1.1
+		Device ID	: 01emd
+		Service IP	: 31.31.31.0/30
+		Service IP Type : Trust
+```

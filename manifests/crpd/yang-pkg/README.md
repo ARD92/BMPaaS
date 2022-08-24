@@ -33,3 +33,41 @@ This will install the below
 - consumer pod will perform write functions on the database
 - cRPD RPC call will only perform read operations
 
+### Verify
+
+#### Verify package
+```
+root@crpd-f4556f7c-bwbpr> show system yang package
+Package ID            :sc-discovery
+YANG Module(s)        :sc-discovery.yang
+Action Script(s)      :sc-discover_yang_action.py
+Translation Script(s) :*
+Translation script status is disabled
+```
+#### Verify volume mount
+
+From shell check if DB is present
+```
+root@crpd-f4556f7c-bwbpr:/tmp/yang-pkg# ls -l /mnt/
+total 288
+-rw-r--r-- 1 root root 268785 Aug 24 04:20 sc-discovery.log
+-rw-r--r-- 1 root root  20480 Aug 24 04:20 service_chain.db
+```
+
+#### Verify command
+```
+root@crpd-f4556f7c-bwbpr> show service-chain discovered
+		Location	: nj
+		Vendor	  	: Juniper Networks
+		Peer IP	  	: 1.1.1.1
+		Device ID	: 01emd
+		Service IP	: 21.21.21.21/32
+		Service IP Type : Trust
+
+		Location	: nj
+		Vendor	  	: Juniper Networks
+		Peer IP	  	: 1.1.1.1
+		Device ID	: 01emd
+		Service IP	: 31.31.31.0/30
+		Service IP Type : Trust
+```
